@@ -15,38 +15,39 @@ jobs:
 
       - name: Set up SSH Key
         run: |
-          echo -n "${{ secrets.SSH_PRIVATE_KEY }}" > private_key
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key
           chmod 600 private_key
 
       - name: Deploy Application
         env:
           SERVER_IP: ${{ secrets.SERVER_IP }}
           DEPLOY_PATH: "/home/ubuntu/fastapi-app"
+          GIT_REPO: "git@github.com:your-username/your-repo.git"  # Change to your repo URL
         run: |
           ssh -o StrictHostKeyChecking=no -i private_key ubuntu@$SERVER_IP << EOF
             set -e  # Stop execution if any command fails
 
-            DEPLOY_PATH="${DEPLOY_PATH}"  # Explicitly define DEPLOY_PATH inside the SSH session
-            echo "Using DEPLOY_PATH: \$DEPLOY_PATH"  # Debugging
+            DEPLOY_PATH="${DEPLOY_PATH}"
+            echo "Using DEPLOY_PATH: \$DEPLOY_PATH"
 
             # Ensure the deployment directory exists
             if [ ! -d "\$DEPLOY_PATH" ]; then
-              echo "Error: DEPLOY_PATH (\$DEPLOY_PATH) does not exist!"
-              exit 1
+              echo "DEPLOY_PATH (\$DEPLOY_PATH) does not exist! Creating it..."
+              mkdir -p "\$DEPLOY_PATH"
             fi
 
             cd \$DEPLOY_PATH
 
-            # Ensure it's a git repository
+            # Ensure it's a git repository, if not clone it
             if [ ! -d ".git" ]; then
-              echo "Error: No Git repository found in \$DEPLOY_PATH!"
-              exit 1
+              echo "No Git repository found! Cloning..."
+              git clone \$GIT_REPO .
             fi
 
             git reset --hard  # Ensure a clean state
             git pull origin main
 
-            # Check if Python and pip are installed
+            # Ensure Python and dependencies are installed
             if ! command -v python3 &> /dev/null; then
               echo "Python3 is not installed. Installing..."
               sudo apt update && sudo apt install -y python3 python3-venv python3-pip
