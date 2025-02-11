@@ -1,75 +1,30 @@
-name: CD Pipeline
+name: Deploy FastAPI to EC2
 
 on:
   push:
     branches:
-      - main
+      - main  # This triggers deployment when code is pushed to the main branch
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Set up SSH Key
+      - name: Set up SSH
         run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key
-          chmod 600 private_key
-          eval "$(ssh-agent -s)"
-          ssh-add private_key
           mkdir -p ~/.ssh
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
 
-      - name: Deploy Application
-        env:
-          SERVER_IP: ${{ secrets.SERVER_IP }}
-          DEPLOY_PATH: "/home/ubuntu/fastapi-app"
-          GIT_REPO: ${{ secrets.GIT_REPO }}
+      - name: Deploy to EC2
         run: |
-          ssh -o StrictHostKeyChecking=no -i private_key ubuntu@$SERVER_IP << EOF
-            set -e  # Stop execution if any command fails
-
-            # Explicitly export environment variables
-            export DEPLOY_PATH="${DEPLOY_PATH}"
-            export GIT_REPO="${GIT_REPO}"
-
-            echo "Deploying to: \$DEPLOY_PATH"
-            echo "Cloning from: \$GIT_REPO"
-
-            # Ensure deployment directory exists
-            if [ ! -d "\$DEPLOY_PATH" ]; then
-              echo "DEPLOY_PATH (\$DEPLOY_PATH) does not exist! Creating it..."
-              mkdir -p "\$DEPLOY_PATH"
-            fi
-
-            cd \$DEPLOY_PATH
-
-            # Ensure it's a Git repository
-            if [ ! -d ".git" ]; then
-              echo "No Git repository found! Cloning..."
-              git clone "\$GIT_REPO" .
-            fi
-
-            git reset --hard
+          ssh ubuntu@${{ secrets.SERVER_IP }} << 'EOF'
+            cd /home/ubuntu/fastapi-app
             git pull origin main
-
-            # Ensure Python is installed
-            if ! command -v python3 &> /dev/null; then
-              echo "Python3 is not installed. Installing..."
-              sudo apt update && sudo apt install -y python3 python3-venv python3-pip
-            fi
-
-            # Ensure virtual environment exists
-            if [ ! -d "venv" ]; then
-              python3 -m venv venv
-            fi
-
-            source venv/bin/activate
-            pip install --upgrade pip
-            pip install -r requirements.txt
-
-            # Restart the service
-            sudo systemctl restart fastapi-app || sudo systemctl restart fastapi-app.service
+            pip3 install -r requirements.txt
+            sudo systemctl restart fastapi
           EOF
