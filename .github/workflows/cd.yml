@@ -3,13 +3,14 @@ name: Deploy FastAPI App
 on:
   push:
     branches:
-      - main
+      - main  # This triggers deployment when code is pushed to the main branch
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout Repository
         uses: actions/checkout@v3
 
