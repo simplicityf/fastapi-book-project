@@ -26,26 +26,30 @@ jobs:
         env:
           SERVER_IP: ${{ secrets.SERVER_IP }}
           DEPLOY_PATH: "/home/ubuntu/fastapi-app"
-          GIT_REPO: ${{ secrets.GIT_REPO }}  # Set this in GitHub Secrets
+          GIT_REPO: ${{ secrets.GIT_REPO }}
         run: |
-          ssh -o StrictHostKeyChecking=no -i private_key ubuntu@$SERVER_IP << 'EOF'
+          ssh -o StrictHostKeyChecking=no -i private_key ubuntu@$SERVER_IP << EOF
             set -e  # Stop execution if any command fails
 
-            echo "Deploying to: $DEPLOY_PATH"
-            echo "Cloning from: $GIT_REPO"
+            # Explicitly export environment variables
+            export DEPLOY_PATH="${DEPLOY_PATH}"
+            export GIT_REPO="${GIT_REPO}"
+
+            echo "Deploying to: \$DEPLOY_PATH"
+            echo "Cloning from: \$GIT_REPO"
 
             # Ensure deployment directory exists
-            if [ ! -d "$DEPLOY_PATH" ]; then
-              echo "DEPLOY_PATH ($DEPLOY_PATH) does not exist! Creating it..."
-              mkdir -p "$DEPLOY_PATH"
+            if [ ! -d "\$DEPLOY_PATH" ]; then
+              echo "DEPLOY_PATH (\$DEPLOY_PATH) does not exist! Creating it..."
+              mkdir -p "\$DEPLOY_PATH"
             fi
 
-            cd $DEPLOY_PATH
+            cd \$DEPLOY_PATH
 
             # Ensure it's a Git repository
             if [ ! -d ".git" ]; then
               echo "No Git repository found! Cloning..."
-              git clone "$GIT_REPO" .
+              git clone "\$GIT_REPO" .
             fi
 
             git reset --hard
