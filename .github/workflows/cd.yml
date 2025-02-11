@@ -1,4 +1,4 @@
-name: CD Pipeline
+name: Deploy FastAPI App
 
 on:
   push:
@@ -11,57 +11,35 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Set up SSH Key
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install Dependencies
         run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key
-          chmod 600 private_key
+          python -m venv venv
+          source venv/bin/activate
+          pip install -r requirements.txt
 
-      - name: Deploy Application
+      - name: Run Tests
+        run: |
+          source venv/bin/activate
+          pytest
+
+      - name: Deploy to Server
         env:
-          SERVER_IP: ${{ secrets.SERVER_IP }}
-          DEPLOY_PATH: "/home/ubuntu/fastapi-app"
-          GIT_REPO: "git@github.com:your-username/your-repo.git"  # Change to your repo URL
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_HOST: ${{ secrets.SERVER_IP }}
         run: |
-          ssh -o StrictHostKeyChecking=no -i private_key ubuntu@$SERVER_IP << EOF
-            set -e  # Stop execution if any command fails
-
-            DEPLOY_PATH="${DEPLOY_PATH}"
-            echo "Using DEPLOY_PATH: \$DEPLOY_PATH"
-
-            # Ensure the deployment directory exists
-            if [ ! -d "\$DEPLOY_PATH" ]; then
-              echo "DEPLOY_PATH (\$DEPLOY_PATH) does not exist! Creating it..."
-              mkdir -p "\$DEPLOY_PATH"
-            fi
-
-            cd \$DEPLOY_PATH
-
-            # Ensure it's a git repository, if not clone it
-            if [ ! -d ".git" ]; then
-              echo "No Git repository found! Cloning..."
-              git clone \$GIT_REPO .
-            fi
-
-            git reset --hard  # Ensure a clean state
+          echo "$SSH_PRIVATE_KEY" > private_key && chmod 600 private_key
+          ssh -o StrictHostKeyChecking=no -i private_key $SERVER_USER@$SERVER_HOST << 'EOF'
+            cd /path/to/your/project
             git pull origin main
-
-            # Ensure Python and dependencies are installed
-            if ! command -v python3 &> /dev/null; then
-              echo "Python3 is not installed. Installing..."
-              sudo apt update && sudo apt install -y python3 python3-venv python3-pip
-            fi
-
-            # Ensure virtual environment exists
-            if [ ! -d "venv" ]; then
-              python3 -m venv venv
-            fi
-
             source venv/bin/activate
-            pip install --upgrade pip
             pip install -r requirements.txt
-
-            # Restart the service
-            sudo systemctl restart fastapi-app || sudo systemctl restart fastapi-app.service
+            systemctl restart fastapi-app
           EOF
