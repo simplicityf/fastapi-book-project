@@ -13,29 +13,51 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.12"
-
-      - name: Install Dependencies
+      - name: Set up SSH Key
         run: |
-          python -m venv venv
-          source venv/bin/activate
-          pip install --upgrade pip
-          pip install -r requirements.txt
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key
+          chmod 600 private_key
 
       - name: Deploy Application
         env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SERVER_IP: ${{ secrets.SERVER_IP }}
           DEPLOY_PATH: "/home/ubuntu/fastapi-app"
         run: |
-          echo "$SSH_PRIVATE_KEY" > private_key && chmod 600 private_key
           ssh -o StrictHostKeyChecking=no -i private_key ubuntu@$SERVER_IP << 'EOF'
+            set -e  # Stop execution if any command fails
+
+            # Ensure the deployment directory exists
+            if [ ! -d "$DEPLOY_PATH" ]; then
+              echo "Error: DEPLOY_PATH ($DEPLOY_PATH) does not exist!"
+              exit 1
+            fi
+
             cd $DEPLOY_PATH
+
+            # Ensure it's a git repository
+            if [ ! -d ".git" ]; then
+              echo "Error: No Git repository found in $DEPLOY_PATH!"
+              exit 1
+            fi
+
+            git reset --hard  # Ensure a clean state
             git pull origin main
+
+            # Check if Python and pip are installed
+            if ! command -v python3 &> /dev/null; then
+              echo "Python3 is not installed. Installing..."
+              sudo apt update && sudo apt install -y python3 python3-venv python3-pip
+            fi
+
+            # Ensure virtual environment exists
+            if [ ! -d "venv" ]; then
+              python3 -m venv venv
+            fi
+
             source venv/bin/activate
+            pip install --upgrade pip
             pip install -r requirements.txt
-            systemctl restart fastapi-app
+
+            # Restart the service
+            sudo systemctl restart fastapi-app || sudo systemctl restart fastapi-app.service
           EOF
