@@ -17,40 +17,41 @@ jobs:
         run: |
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key
           chmod 600 private_key
+          eval "$(ssh-agent -s)"
+          ssh-add private_key
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
 
       - name: Deploy Application
         env:
           SERVER_IP: ${{ secrets.SERVER_IP }}
           DEPLOY_PATH: "/home/ubuntu/fastapi-app"
-          GIT_REPO: "git@github.com:your-username/your-repo.git"  # Replace with your actual repo
+          GIT_REPO: ${{ secrets.GIT_REPO }}  # Set this in GitHub Secrets
         run: |
-          ssh -o StrictHostKeyChecking=no -i private_key ubuntu@$SERVER_IP << EOF
+          ssh -o StrictHostKeyChecking=no -i private_key ubuntu@$SERVER_IP << 'EOF'
             set -e  # Stop execution if any command fails
 
-            DEPLOY_PATH="${DEPLOY_PATH}"
-            GIT_REPO="${GIT_REPO}"  # Explicitly define GIT_REPO inside SSH
+            echo "Deploying to: $DEPLOY_PATH"
+            echo "Cloning from: $GIT_REPO"
 
-            echo "Using DEPLOY_PATH: \$DEPLOY_PATH"
-            echo "Using GIT_REPO: \$GIT_REPO"
-
-            # Ensure the deployment directory exists
-            if [ ! -d "\$DEPLOY_PATH" ]; then
-              echo "DEPLOY_PATH (\$DEPLOY_PATH) does not exist! Creating it..."
-              mkdir -p "\$DEPLOY_PATH"
+            # Ensure deployment directory exists
+            if [ ! -d "$DEPLOY_PATH" ]; then
+              echo "DEPLOY_PATH ($DEPLOY_PATH) does not exist! Creating it..."
+              mkdir -p "$DEPLOY_PATH"
             fi
 
-            cd \$DEPLOY_PATH
+            cd $DEPLOY_PATH
 
-            # Ensure it's a git repository, if not clone it
+            # Ensure it's a Git repository
             if [ ! -d ".git" ]; then
-              echo "No Git repository found! Cloning from \$GIT_REPO..."
-              git clone "\$GIT_REPO" .  # Corrected repository path
+              echo "No Git repository found! Cloning..."
+              git clone "$GIT_REPO" .
             fi
 
-            git reset --hard  # Ensure a clean state
+            git reset --hard
             git pull origin main
 
-            # Ensure Python and dependencies are installed
+            # Ensure Python is installed
             if ! command -v python3 &> /dev/null; then
               echo "Python3 is not installed. Installing..."
               sudo apt update && sudo apt install -y python3 python3-venv python3-pip
