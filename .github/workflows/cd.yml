@@ -13,20 +13,29 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up SSH Key
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install Dependencies
         run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key
-          chmod 600 private_key
+          python -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: Deploy Application
         env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SERVER_IP: ${{ secrets.SERVER_IP }}
           DEPLOY_PATH: "/home/ubuntu/fastapi-app"
         run: |
+          echo "$SSH_PRIVATE_KEY" > private_key && chmod 600 private_key
           ssh -o StrictHostKeyChecking=no -i private_key ubuntu@$SERVER_IP << 'EOF'
             cd $DEPLOY_PATH
             git pull origin main
             source venv/bin/activate
             pip install -r requirements.txt
-            systemctl restart fastapi-app || sudo systemctl restart fastapi-app
+            systemctl restart fastapi-app
           EOF
