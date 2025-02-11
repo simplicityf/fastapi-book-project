@@ -1,4 +1,4 @@
-name: Deploy FastAPI to EC2
+name: Deploy FastAPI App
 
 on:
   push:
@@ -10,21 +10,37 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+
+      - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Set up SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
 
-      - name: Deploy to EC2
+      - name: Install Dependencies
         run: |
-          ssh ubuntu@${{ secrets.SERVER_IP }} << 'EOF'
-            cd /home/ubuntu/fastapi-app
+          python -m venv venv
+          source venv/bin/activate
+          pip install -r requirements.txt
+
+      - name: Run Tests
+        run: |
+          source venv/bin/activate
+          pytest
+
+      - name: Deploy to Server
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_HOST: ${{ secrets.SERVER_IP }}
+        run: |
+          echo "$SSH_PRIVATE_KEY" > private_key && chmod 600 private_key
+          ssh -o StrictHostKeyChecking=no -i private_key $SERVER_USER@$SERVER_HOST << 'EOF'
+            cd /path/to/your/project
             git pull origin main
-            pip3 install -r requirements.txt
-            sudo systemctl restart fastapi
+            source venv/bin/activate
+            pip install -r requirements.txt
+            systemctl restart fastapi-app
           EOF
