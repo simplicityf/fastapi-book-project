@@ -15,7 +15,7 @@ jobs:
 
       - name: Set up SSH Key
         run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key
+          echo -n "${{ secrets.SSH_PRIVATE_KEY }}" > private_key
           chmod 600 private_key
 
       - name: Deploy Application
@@ -23,20 +23,23 @@ jobs:
           SERVER_IP: ${{ secrets.SERVER_IP }}
           DEPLOY_PATH: "/home/ubuntu/fastapi-app"
         run: |
-          ssh -o StrictHostKeyChecking=no -i private_key ubuntu@$SERVER_IP << 'EOF'
+          ssh -o StrictHostKeyChecking=no -i private_key ubuntu@$SERVER_IP << EOF
             set -e  # Stop execution if any command fails
 
+            DEPLOY_PATH="${DEPLOY_PATH}"  # Explicitly define DEPLOY_PATH inside the SSH session
+            echo "Using DEPLOY_PATH: \$DEPLOY_PATH"  # Debugging
+
             # Ensure the deployment directory exists
-            if [ ! -d "$DEPLOY_PATH" ]; then
-              echo "Error: DEPLOY_PATH ($DEPLOY_PATH) does not exist!"
+            if [ ! -d "\$DEPLOY_PATH" ]; then
+              echo "Error: DEPLOY_PATH (\$DEPLOY_PATH) does not exist!"
               exit 1
             fi
 
-            cd $DEPLOY_PATH
+            cd \$DEPLOY_PATH
 
             # Ensure it's a git repository
             if [ ! -d ".git" ]; then
-              echo "Error: No Git repository found in $DEPLOY_PATH!"
+              echo "Error: No Git repository found in \$DEPLOY_PATH!"
               exit 1
             fi
 
