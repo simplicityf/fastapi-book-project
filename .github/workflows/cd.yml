@@ -37,7 +37,7 @@ jobs:
         run: |
           echo "$SSH_PRIVATE_KEY" > private_key && chmod 600 private_key
           ssh -o StrictHostKeyChecking=no -i private_key $SERVER_USER@$SERVER_HOST << 'EOF'
-            cd /path/to/your/project
+            cd /home/ubuntu/fastapi-app/fastapi-book-project
             git pull origin main
             source venv/bin/activate
             pip install -r requirements.txt
