@@ -25,4 +25,4 @@ async def health_check():
 @app.get("/devcheck")
 async def health_check():
     """Checks if server is active."""
-    return {"status": "dev is very active, server changes"}
+    return {"status": "dev is very active, I have reflect on the server"}
