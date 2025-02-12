@@ -107,6 +107,7 @@ sudo systemctl restart nginx
 ## **🔗 Live API**
 🌍 **Base URL:** `http://13.61.11.120`  
 📄 **Swagger Docs:** `http://13.61.11.120/docs`  
+   **Book endpoint** `http://13.61.11.120/api/v1/books/2`
 
 ---
 
