@@ -38,8 +38,11 @@ jobs:
           echo "$SSH_PRIVATE_KEY" > private_key && chmod 600 private_key
           ssh -o StrictHostKeyChecking=no -i private_key $SERVER_USER@$SERVER_HOST << 'EOF'
             cd /home/ubuntu/fastapi-book-project
+            git config pull.rebase false  # Prevents conflicts when pulling changes
             git pull origin main
             source venv/bin/activate
             pip install -r requirements.txt
-            sudo -S systemctl restart fastapi-app <<< ""
+            sudo systemctl daemon-reload
+            sudo systemctl restart fastapi-app
+            sudo systemctl enable fastapi-app
           EOF
